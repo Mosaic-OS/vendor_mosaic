@@ -1,0 +1,13 @@
+android_app_import {
+    name: "SystemUIClocks-NumOverlap",
+    apk: "prebuilt/SystemUIClocks-NumOverlap.apk",
+    
+    privileged: true,
+    system_ext_specific: true,
+    certificate: "platform",
+    
+    optional_uses_libs: [
+        "androidx.window.extensions",
+        "androidx.window.sidecar",
+    ],
+}
