@@ -48,5 +48,5 @@ PRODUCT_PACKAGES += \
     SystemUIClocks-Growth \
     SystemUIClocks-Inflate \
     SystemUIClocks-Metro \
-    SystemUIClocks-NumOverlap
-
+    SystemUIClocks-NumOverlap \
+	SystemUIClocks-Weather
