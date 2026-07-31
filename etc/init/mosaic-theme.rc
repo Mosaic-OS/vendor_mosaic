@@ -1,0 +1,21 @@
+service mosaic_theme_set /vendor/bin/misc_writer --set-dark-theme
+    disabled
+    oneshot
+    user root
+
+service mosaic_theme_clear /vendor/bin/misc_writer --clear-dark-theme
+    disabled
+    oneshot
+    user root
+
+on property:sys.boot_completed=1 && property:persist.sys.theme=1
+    start mosaic_theme_clear
+
+on property:sys.boot_completed=1 && property:persist.sys.theme=2
+    start mosaic_theme_set
+
+on property:persist.sys.theme=1
+    start mosaic_theme_clear
+
+on property:persist.sys.theme=2
+    start mosaic_theme_set
