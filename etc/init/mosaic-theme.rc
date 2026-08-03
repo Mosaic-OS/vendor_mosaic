@@ -8,6 +8,12 @@ service mosaic_theme_clear /vendor/bin/misc_writer --clear-dark-theme
     oneshot
     user root
 
+on property:persist.sys.device_provisioned=1 && property:persist.sys.theme=1
+    start mosaic_theme_clear
+
+on property:persist.sys.device_provisioned=1 && property:persist.sys.theme=2
+    start mosaic_theme_set
+
 on property:sys.boot_completed=1 && property:persist.sys.theme=1
     start mosaic_theme_clear
 
