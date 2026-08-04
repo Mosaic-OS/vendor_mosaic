@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wallpapers_app_label">MosaicOS Wallpapers</string>
+    <string name="wallpapers_category_title">MosaicOS</string>
+    <string name="wallpaper_aurora_title">Aurora</string>
+    <string name="wallpaper_bloom_title">Bloom</string>
+    <string name="wallpaper_default_title">MosaicOS</string>
+    <string name="wallpaper_fold_title">Fold</string>
+    <string name="wallpaper_halftone_title">Halftone</string>
+    <string name="wallpaper_mosaic_title">Mosaic</string>
+    <string name="wallpaper_orbit_title">Orbit</string>
+    <string name="wallpaper_peaks_title">Peaks</string>
+    <string name="wallpaper_petal_title">Petal</string>
+    <string name="wallpaper_prism_title">Prism</string>
+    <string name="wallpaper_pulse_title">Pulse</string>
+    <string name="wallpaper_rhythm_title">Rhythm</string>
+    <string name="wallpaper_slabs_title">Slabs</string>
+    <string name="wallpaper_swirl_title">Swirl</string>
+    <string name="wallpaper_wave_title">Wave</string>
+</resources>

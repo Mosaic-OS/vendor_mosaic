@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wallpapers_app_label">MosaicOS háttérképek</string>
+    <string name="wallpaper_aurora_title">Aurora</string>
+    <string name="wallpaper_bloom_title">Virágzás</string>
+    <string name="wallpaper_default_title">MosaicOS</string>
+    <string name="wallpaper_fold_title">Hajtás</string>
+    <string name="wallpaper_halftone_title">Félárnyék</string>
+    <string name="wallpaper_mosaic_title">Mozaik</string>
+    <string name="wallpaper_orbit_title">Pálya</string>
+    <string name="wallpaper_peaks_title">Csúcsok</string>
+    <string name="wallpaper_petal_title">Szirom</string>
+    <string name="wallpaper_prism_title">Prizma</string>
+    <string name="wallpaper_pulse_title">Pulzus</string>
+    <string name="wallpaper_rhythm_title">Ritmus</string>
+    <string name="wallpaper_slabs_title">Lapok</string>
+    <string name="wallpaper_swirl_title">Örvény</string>
+    <string name="wallpaper_wave_title">Hullám</string>
+</resources>
