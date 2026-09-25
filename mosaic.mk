@@ -10,31 +10,33 @@ PRODUCT_COPY_FILES += \
 MOSAIC_ASSISTANT_4B_DEVICES := husky tokay caiman komodo frankel blazer mustang rango
 
 ifneq ($(filter $(MOSAIC_ASSISTANT_4B_DEVICES) $(addprefix aosp_,$(MOSAIC_ASSISTANT_4B_DEVICES)),$(TARGET_PRODUCT)),)
-MOSAIC_ASSISTANT_MODEL := vendor/mosaic/models/Qwen3.5-4B-UD-Q4_K_XL.gguf
+MOSAIC_ASSISTANT_TIER := 4b
 else
-MOSAIC_ASSISTANT_MODEL := vendor/mosaic/models/Qwen3.5-2B-UD-Q4_K_XL.gguf
+MOSAIC_ASSISTANT_TIER := 2b
 endif
 
-ifeq ($(wildcard $(MOSAIC_ASSISTANT_MODEL)),)
-MOSAIC_ASSISTANT_MODEL := $(firstword $(sort $(wildcard vendor/mosaic/models/*.gguf)))
+MOSAIC_MODEL_CATALOG := vendor/mosaic/catalog/catalog-$(MOSAIC_ASSISTANT_TIER).json
+ifeq ($(wildcard $(MOSAIC_MODEL_CATALOG)),)
+$(error Generate the offline model catalogs with vendor/mosaic/generate-model-catalog.py after download-models.sh all)
 endif
-ifneq ($(MOSAIC_ASSISTANT_MODEL),)
 PRODUCT_COPY_FILES += \
-    $(MOSAIC_ASSISTANT_MODEL):$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/models/$(notdir $(MOSAIC_ASSISTANT_MODEL))
+    $(MOSAIC_MODEL_CATALOG):$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/model-catalog.json
+
+MOSAIC_BUNDLE_MODELS ?= false
+ifeq ($(MOSAIC_BUNDLE_MODELS),true)
+MOSAIC_BUNDLED_CHAT := $(if $(filter 4b,$(MOSAIC_ASSISTANT_TIER)),Qwen3.5-4B-UD-Q4_K_XL.gguf,Qwen3.5-2B-UD-Q4_K_XL.gguf)
+PRODUCT_COPY_FILES += \
+    vendor/mosaic/models/$(MOSAIC_BUNDLED_CHAT):$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/bundled-models/$(MOSAIC_BUNDLED_CHAT) \
+    vendor/mosaic/models/whisper-base.en-q8_0.bin:$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/bundled-models/whisper-base.en-q8_0.bin
 endif
 
-MOSAIC_WHISPER_MODEL := $(wildcard vendor/mosaic/models/whisper-*.bin)
-ifneq ($(MOSAIC_WHISPER_MODEL),)
 PRODUCT_COPY_FILES += \
-    $(foreach model,$(MOSAIC_WHISPER_MODEL),\
-        $(model):$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/models/$(notdir $(model)))
-endif
+    vendor/mosaic/etc/default-permissions-timty.xml:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/default-permissions/default-permissions-timty.xml
 
-PRODUCT_COPY_FILES += \
-    vendor/mosaic/etc/default-permissions-mosaic-assistant.xml:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/default-permissions/default-permissions-mosaic-assistant.xml
+PRODUCT_PACKAGES_ARM64 += \
+    Timty
 
 PRODUCT_PACKAGES += \
-    MosaicAssistant \
     MosaicWallpapers \
     fonts_customization.xml \
     FontAccuratistOverlay \
