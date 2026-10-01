@@ -36,6 +36,12 @@ PRODUCT_COPY_FILES += \
 PRODUCT_PACKAGES_ARM64 += \
     Timty
 
+MOSAIC_SCREEN_OFF_OPTICAL_UDFPS_DEVICES := oriole raven bluejay panther cheetah lynx shiba husky akita tegu
+
+ifneq ($(filter $(MOSAIC_SCREEN_OFF_OPTICAL_UDFPS_DEVICES) $(addprefix aosp_,$(MOSAIC_SCREEN_OFF_OPTICAL_UDFPS_DEVICES)),$(TARGET_PRODUCT)),)
+PRODUCT_PACKAGES += MosaicOpticalUdfpsOverlay
+endif
+
 PRODUCT_PACKAGES += \
     MosaicWallpapers \
     fonts_customization.xml \
