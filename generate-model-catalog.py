@@ -21,6 +21,7 @@ import re
 import stat
 import struct
 import subprocess
+import sys
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parent
@@ -29,22 +30,41 @@ REDIRECT_HOSTS = ['us.aws.cdn.hf.co', 'us.gcp.cdn.hf.co', 'cdn-lfs-us-1.hf.co',
                   'cdn-lfs-eu-1.hf.co', 'cas-bridge.xethub.hf.co']
 
 
-def verified_entry(prefix, model_id, engine, kind, pins):
+def pin_value(pins, prefix, suffix):
+    match = re.search(r'^readonly ' + prefix + '_' + suffix + r'=(?:"([^"\n]*)"|([^\s"#]+))$',
+                      pins, re.MULTILINE)
+    return (match[1] if match[1] is not None else match[2]) if match else None
+
+
+def valid_model_url(source_url):
+    if not 1 <= len(source_url) <= 8192 or not all(33 <= ord(char) <= 126 for char in source_url):
+        return False
+    url = urlsplit(source_url)
+    return (url.scheme == 'https' and url.netloc == 'huggingface.co' and not url.query and not url.fragment
+            and '?' not in source_url and '#' not in source_url
+            and re.fullmatch(r'/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/resolve/'
+                             r'[0-9a-f]{40}/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*', url.path) is not None
+            and not any(part in ('.', '..') for part in url.path.split('/')[1:]))
+
+
+def verified_entry(prefix, model_id, engine, kind, pins, languages=(), variant='', download_only=False):
     def pin(suffix):
-        match = re.search(r'^readonly ' + prefix + '_' + suffix + r'="?([^"\n]+)"?$',
-                          pins, re.MULTILINE)
-        if not match:
+        value = pin_value(pins, prefix, suffix)
+        if not value:
             raise ValueError('Missing pin: ' + prefix + '_' + suffix)
-        return match[1]
+        return value
 
     name, size, expected = pin('NAME'), int(pin('SIZE')), pin('SHA256')
-    if Path(name).name != name or not re.fullmatch(r'[0-9a-f]{64}', expected):
+    if (not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,99}', name) or size not in range(1, 4_000_000_001)
+            or not re.fullmatch(r'[0-9a-f]{64}', expected)):
         raise ValueError('Invalid model pin')
     source_url = pin('URL')
     url = urlsplit(source_url)
-    if (url.scheme != 'https' or url.netloc != 'huggingface.co' or url.query or url.fragment
-            or not re.fullmatch(r'/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/resolve/[0-9a-f]{40}/[A-Za-z0-9._-]+', url.path)):
+    if not valid_model_url(source_url):
         raise ValueError('Source must be a pinned HTTPS Hugging Face revision')
+    commit = pin_value(pins, prefix, 'COMMIT')
+    if commit is not None and (not re.fullmatch(r'[0-9a-f]{40}', commit) or url.path.split('/')[4] != commit):
+        raise ValueError('Pinned revision mismatch: ' + model_id)
     fd = os.open(ROOT / 'models' / name, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd, 'rb') as source:
         info = os.fstat(source.fileno())
@@ -77,18 +97,24 @@ def verified_entry(prefix, model_id, engine, kind, pins):
                 sourceUrl=source_url, redirectHosts=REDIRECT_HOSTS,
                 verity=verity, verityVersion=1,
                 verityAlgorithm='sha256', verityBlockSize=BLOCK, veritySalt='',
-                engine=engine, format='gguf' if kind == 'chat' else 'whisper-ggml')
+                engine=engine, format={'chat': 'gguf', 'speech': 'whisper-ggml', 'voice': 'onnx'}[kind],
+                languages=list(languages), variant=variant, downloadOnly=download_only)
 
 
 def main():
-    pins = (ROOT / 'download-models.sh').read_text(encoding='utf-8')
+    pins = (ROOT / 'download-models.sh').read_text(encoding='utf-8').replace('\\\n', '')
     models = [verified_entry('MODEL_2B', 'chat-2b', 'llama-b10737-mosaic-1', 'chat', pins),
               verified_entry('MODEL_4B', 'chat-4b', 'llama-b10737-mosaic-1', 'chat', pins),
-              verified_entry('WHISPER', 'speech-en', 'whisper-v1.9.3-mosaic-1', 'speech', pins)]
+              verified_entry('WHISPER', 'speech-en', 'whisper-v1.9.3-mosaic-1', 'speech', pins,
+                             ('en',), 'base.en-q8_0'),
+              verified_entry('WHISPER_EN_SMALL', 'speech-en-small', 'whisper-v1.9.3-mosaic-1', 'speech', pins,
+                             ('en',), 'small.en-q8_0', True)]
+    models.append(verified_entry('VOICE_HU_ANNA', 'voice-hu-anna', 'piper-onnx-1', 'voice', pins,
+                                 ('hu',), 'hu_HU-anna-medium', True))
     destination = ROOT / 'catalog'
     destination.mkdir(exist_ok=True)
     for tier in ('2b', '4b'):
-        catalog = dict(schema=2, recommendedChat='chat-' + tier, models=models)
+        catalog = dict(schema=3, recommendedChat='chat-' + tier, models=models)
         output = destination / ('catalog-' + tier + '.json')
         temporary = output.with_suffix('.tmp')
         with temporary.open('wb') as stream:
@@ -96,7 +122,7 @@ def main():
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, output)
-    print('Catalogs generated from all three pinned model byte streams.')
+    print(f'Catalogs generated from {len(models)} pinned model byte streams.')
 
 
 if __name__ == '__main__':

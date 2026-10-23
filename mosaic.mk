@@ -15,6 +15,11 @@ else
 MOSAIC_ASSISTANT_TIER := 2b
 endif
 
+MOSAIC_ORT_AAR := vendor/mosaic/prebuilts/onnxruntime/onnxruntime-android-1.31.0.aar
+ifeq ($(wildcard $(MOSAIC_ORT_AAR)),)
+$(error Download the pinned TTS runtime with vendor/mosaic/download-models.sh ort)
+endif
+
 MOSAIC_MODEL_CATALOG := vendor/mosaic/catalog/catalog-$(MOSAIC_ASSISTANT_TIER).json
 ifeq ($(wildcard $(MOSAIC_MODEL_CATALOG)),)
 $(error Generate the offline model catalogs with vendor/mosaic/generate-model-catalog.py after download-models.sh all)
@@ -30,11 +35,13 @@ PRODUCT_COPY_FILES += \
     vendor/mosaic/models/whisper-base.en-q8_0.bin:$(TARGET_COPY_OUT_PRODUCT)/etc/mosaic/bundled-models/whisper-base.en-q8_0.bin
 endif
 
+MOSAIC_TABITI_PERMISSIONS := default-permissions-tabiti.xml
+MOSAIC_TABITI_PERMISSIONS_DIR := $(TARGET_COPY_OUT_SYSTEM_EXT)/etc/default-permissions
 PRODUCT_COPY_FILES += \
-    vendor/mosaic/etc/default-permissions-timty.xml:$(TARGET_COPY_OUT_SYSTEM_EXT)/etc/default-permissions/default-permissions-timty.xml
+    vendor/mosaic/etc/$(MOSAIC_TABITI_PERMISSIONS):$(MOSAIC_TABITI_PERMISSIONS_DIR)/$(MOSAIC_TABITI_PERMISSIONS)
 
 PRODUCT_PACKAGES_ARM64 += \
-    Timty
+    Tabiti
 
 MOSAIC_SCREEN_OFF_OPTICAL_UDFPS_DEVICES := oriole raven bluejay panther cheetah lynx shiba husky akita tegu
 

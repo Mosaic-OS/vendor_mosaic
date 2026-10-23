@@ -20,9 +20,45 @@ readonly WHISPER_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/53598
 readonly WHISPER_SHA256="a4d4a0768075e13cfd7e19df3ae2dbc4a68d37d36a7dad45e8410c9a34f8c87e"
 readonly WHISPER_SIZE=81781811
 
+readonly WHISPER_EN_SMALL_NAME="whisper-small.en-q8_0.bin"
+readonly WHISPER_EN_SMALL_URL="https://huggingface.co/ggerganov/whisper.cpp/resolve/\
+5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.en-q8_0.bin"
+readonly WHISPER_EN_SMALL_SHA256="67a179f608ea6114bd3fdb9060e762b588a3fb3bd00c4387971be4d177958067"
+readonly WHISPER_EN_SMALL_SIZE=264477561
+
+readonly VOICE_HU_ANNA_NAME="piper-hu_HU-anna-medium.onnx"
+readonly VOICE_HU_ANNA_URL="https://huggingface.co/rhasspy/piper-voices/resolve/\
+c10ece1aade47bb51c153c893d14e5bf8e5b7117/hu/hu_HU/anna/medium/hu_HU-anna-medium.onnx"
+readonly VOICE_HU_ANNA_COMMIT="c10ece1aade47bb51c153c893d14e5bf8e5b7117"
+readonly VOICE_HU_ANNA_SHA256="968c0c3a66cb667811242cc88653bff9247395fc7a0517fbeef7d8c08cdae62a"
+readonly VOICE_HU_ANNA_SIZE=63201294
+
+readonly ORT_NAME="onnxruntime-android-1.31.0.aar"
+readonly ORT_URL="https://repo.maven.apache.org/maven2/com/microsoft/onnxruntime/\
+onnxruntime-android/1.31.0/onnxruntime-android-1.31.0.aar"
+readonly ORT_SHA256="72683787a80d0608a3121b967d8e1239aef48286826661c953211626690540a7"
+readonly ORT_SIZE=55138854
+readonly ORT_DIR="${SCRIPT_DIR}/prebuilts/onnxruntime"
+
+pinned_model_url() {
+    local url=$1
+    local LC_ALL=C
+    (( ${#url} <= 8192 )) || return 1
+    local commit=${2:-'[0-9a-f]{40}'}
+    local pattern='^https://huggingface.co/[A-Za-z0-9._-]+/[A-Za-z0-9._-]+/resolve/'
+    pattern+="${commit}/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$"
+    [[ "$url" =~ $pattern ]] || return 1
+    local part
+    local -a parts
+    IFS='/' read -r -a parts <<< "${url#https://huggingface.co/}"
+    for part in "${parts[@]}"; do
+        [[ "$part" != . && "$part" != .. ]] || return 1
+    done
+}
+
 usage() {
-    printf 'Usage: %s [all|2b|4b|whisper]...\n' "${0##*/}"
-    printf 'With no arguments, all three models are selected.\n'
+    printf 'Usage: %s [all|2b|4b|whisper|whisper-en-small|voice-hu|ort]...\n' "${0##*/}"
+    printf 'With no arguments, all models and the TTS runtime are selected.\n'
 }
 
 die() {
@@ -30,62 +66,47 @@ die() {
     exit 1
 }
 
-want_2b=0
-want_4b=0
-want_whisper=0
+pin_value() {
+    local key="${1}_${2}"
+    printf '%s' "${!key:-}"
+}
 
 if (( $# == 0 )); then
     set -- all
 fi
-
+requested=()
 for selection in "$@"; do
     case "$selection" in
-        all)
-            want_2b=1
-            want_4b=1
-            want_whisper=1
-            ;;
-        2b)
-            want_2b=1
-            ;;
-        4b)
-            want_4b=1
-            ;;
-        whisper)
-            want_whisper=1
-            ;;
-        -h|--help)
-            usage
-            exit 0
-            ;;
-        *)
-            printf 'Error: unknown model selection: %s\n' "$selection" >&2
-            usage >&2
-            exit 2
-            ;;
+        all) requested+=(MODEL_2B MODEL_4B WHISPER WHISPER_EN_SMALL VOICE_HU_ANNA ORT) ;;
+        2b) requested+=(MODEL_2B) ;;
+        4b) requested+=(MODEL_4B) ;;
+        whisper) requested+=(WHISPER) ;;
+        whisper-en-small) requested+=(WHISPER_EN_SMALL) ;;
+        voice-hu) requested+=(VOICE_HU_ANNA) ;;
+        ort) requested+=(ORT) ;;
+        -h|--help) usage; exit 0 ;;
+        *) usage >&2; die "Unknown model selection: $selection" ;;
     esac
 done
 
-total_size=0
+selected=()
 selected_models=""
-if (( want_2b )); then
-    (( total_size += MODEL_2B_SIZE ))
-    selected_models="${selected_models} 2b"
-fi
-if (( want_4b )); then
-    (( total_size += MODEL_4B_SIZE ))
-    selected_models="${selected_models} 4b"
-fi
-if (( want_whisper )); then
-    (( total_size += WHISPER_SIZE ))
-    selected_models="${selected_models} whisper"
-fi
+total_size=0
+for prefix in "${requested[@]}"; do
+    [[ " ${selected[*]} " != *" $prefix "* ]] || continue
+    if [[ "$prefix" != ORT ]]; then
+        pinned_model_url "$(pin_value "$prefix" URL)" || die "Invalid pinned URL for $prefix"
+    fi
+    selected+=("$prefix")
+    selected_models+=" $(pin_value "$prefix" NAME)"
+    (( total_size += $(pin_value "$prefix" SIZE) ))
+done
 
 printf 'Selected models: %s\n' "${selected_models# }"
 printf 'Selected download size if absent: %d bytes (about %d MiB)\n' \
     "$total_size" "$(( (total_size + 524288) / 1048576 ))"
 
-mkdir -p -- "$MODELS_DIR"
+mkdir -p -- "$MODELS_DIR" "$ORT_DIR"
 
 if command -v sha256sum >/dev/null 2>&1; then
     hash_tool="sha256sum"
@@ -159,8 +180,9 @@ fetch_model() {
     local url=$2
     local expected_hash=$3
     local expected_size=$4
-    local destination="${MODELS_DIR}/${name}"
-    local partial="${MODELS_DIR}/.${name}.${expected_hash}.part"
+    local directory=${5:-$MODELS_DIR}
+    local destination="${directory}/${name}"
+    local partial="${directory}/.${name}.${expected_hash}.part"
     local actual_hash
     local partial_size
 
@@ -174,7 +196,7 @@ fetch_model() {
 
     if [[ -f "$destination" ]]; then
         actual_hash=$(sha256_of "$destination")
-        if [[ "$actual_hash" == "$expected_hash" ]]; then
+        if [[ "$actual_hash" == "$expected_hash" && $(wc -c < "$destination") == "$expected_size" ]]; then
             if [[ -f "$partial" ]]; then
                 rm -f -- "$partial"
             elif [[ -e "$partial" ]]; then
@@ -250,14 +272,11 @@ fetch_model() {
     printf 'Verified and installed: %s\n' "$name"
 }
 
-if (( want_2b )); then
-    fetch_model "$MODEL_2B_NAME" "$MODEL_2B_URL" "$MODEL_2B_SHA256" "$MODEL_2B_SIZE"
-fi
-if (( want_4b )); then
-    fetch_model "$MODEL_4B_NAME" "$MODEL_4B_URL" "$MODEL_4B_SHA256" "$MODEL_4B_SIZE"
-fi
-if (( want_whisper )); then
-    fetch_model "$WHISPER_NAME" "$WHISPER_URL" "$WHISPER_SHA256" "$WHISPER_SIZE"
-fi
+for prefix in "${selected[@]}"; do
+    directory=$MODELS_DIR
+    [[ "$prefix" != ORT ]] || directory=$ORT_DIR
+    fetch_model "$(pin_value "$prefix" NAME)" "$(pin_value "$prefix" URL)" \
+        "$(pin_value "$prefix" SHA256)" "$(pin_value "$prefix" SIZE)" "$directory"
+done
 
 printf 'All selected models are ready.\n'
