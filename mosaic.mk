@@ -7,7 +7,7 @@ PRODUCT_COPY_FILES += \
 	vendor/mosaic/bootanimation-dark.zip:$(TARGET_COPY_OUT_PRODUCT)/media/bootanimation-dark.zip \
 	vendor/mosaic/etc/init/mosaic-theme.rc:$(TARGET_COPY_OUT_PRODUCT)/etc/init/mosaic-theme.rc
 
-MOSAIC_ASSISTANT_4B_DEVICES := husky tokay caiman komodo frankel blazer mustang rango
+MOSAIC_ASSISTANT_4B_DEVICES := husky tokay caiman komodo comet frankel blazer mustang rango
 
 ifneq ($(filter $(MOSAIC_ASSISTANT_4B_DEVICES) $(addprefix aosp_,$(MOSAIC_ASSISTANT_4B_DEVICES)),$(TARGET_PRODUCT)),)
 MOSAIC_ASSISTANT_TIER := 4b
